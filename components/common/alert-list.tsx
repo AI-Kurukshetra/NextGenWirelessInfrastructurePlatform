@@ -22,17 +22,18 @@ type AlertListProps = {
 export function AlertList({ alarms, pageSize }: AlertListProps) {
   const [page, setPage] = useState(1);
   const isPaginated = Boolean(pageSize && pageSize > 0);
-  const pageCount = isPaginated ? Math.max(1, Math.ceil(alarms.length / pageSize)) : 1;
+  const safePageSize = pageSize ?? 1;
+  const pageCount = isPaginated ? Math.max(1, Math.ceil(alarms.length / safePageSize)) : 1;
 
   useEffect(() => {
     if (page > pageCount) setPage(pageCount);
   }, [page, pageCount]);
 
   const displayedAlarms = useMemo(() => {
-    if (!isPaginated || !pageSize) return alarms;
-    const start = (page - 1) * pageSize;
-    return alarms.slice(start, start + pageSize);
-  }, [alarms, isPaginated, page, pageSize]);
+    if (!isPaginated) return alarms;
+    const start = (page - 1) * safePageSize;
+    return alarms.slice(start, start + safePageSize);
+  }, [alarms, isPaginated, page, safePageSize]);
 
   return (
     <Card>

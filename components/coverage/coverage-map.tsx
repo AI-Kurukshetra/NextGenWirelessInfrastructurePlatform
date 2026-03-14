@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import L from "leaflet";
+import type * as Leaflet from "leaflet";
 
 export type CoverageMapPoint = {
   id: string;
@@ -19,43 +19,58 @@ type CoverageMapProps = {
 
 export function CoverageMap({ points }: CoverageMapProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const layerRef = useRef<L.LayerGroup | null>(null);
+  const mapRef = useRef<Leaflet.Map | null>(null);
+  const layerRef = useRef<Leaflet.LayerGroup | null>(null);
+  const leafletRef = useRef<typeof import("leaflet") | null>(null);
 
   useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
+    let mounted = true;
 
-    const map = L.map(mapContainerRef.current, { zoomControl: true });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors",
-      maxZoom: 19,
-    }).addTo(map);
+    async function init() {
+      if (!mapContainerRef.current || mapRef.current) return;
 
-    map.setView([20.5937, 78.9629], 4);
+      const L = await import("leaflet");
+      if (!mounted || !mapContainerRef.current || mapRef.current) return;
 
-    mapRef.current = map;
-    layerRef.current = L.layerGroup().addTo(map);
+      leafletRef.current = L;
+      const map = L.map(mapContainerRef.current, { zoomControl: true });
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+        maxZoom: 19,
+      }).addTo(map);
+
+      map.setView([20.5937, 78.9629], 4);
+      mapRef.current = map;
+      layerRef.current = L.layerGroup().addTo(map);
+    }
+
+    init();
 
     return () => {
-      map.remove();
+      mounted = false;
+      if (mapRef.current) {
+        mapRef.current.remove();
+      }
       mapRef.current = null;
       layerRef.current = null;
+      leafletRef.current = null;
     };
   }, []);
 
   useEffect(() => {
+    const L = leafletRef.current;
     const map = mapRef.current;
     const layer = layerRef.current;
-    if (!map || !layer) return;
+    if (!L || !map || !layer) return;
 
     layer.clearLayers();
 
-    const latLngs: L.LatLngExpression[] = [];
+    const latLngs: Leaflet.LatLngExpression[] = [];
 
     points.forEach((point) => {
       if (!Number.isFinite(point.latitude) || !Number.isFinite(point.longitude)) return;
 
-      const latLng: L.LatLngTuple = [point.latitude, point.longitude];
+      const latLng: Leaflet.LatLngTuple = [point.latitude, point.longitude];
       latLngs.push(latLng);
 
       if (point.coverageRadiusKm && point.coverageRadiusKm > 0) {
