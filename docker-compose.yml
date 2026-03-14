@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  web:
+    build: .
+    container_name: telecom-nms-web
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+    depends_on:
+      - supabase-db
+
+  supabase-db:
+    image: supabase/postgres:15.8.1.049
+    container_name: telecom-nms-db
+    ports:
+      - "54322:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+    volumes:
+      - supabase_db_data:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d
+
+  supabase-studio:
+    image: supabase/studio:2025.02.14-sha-7f6f2c5
+    container_name: telecom-nms-studio
+    ports:
+      - "54323:3000"
+    environment:
+      SUPABASE_URL: http://localhost:54321
+      STUDIO_PG_META_URL: http://supabase-meta:8080
+      POSTGRES_PASSWORD: postgres
+      DEFAULT_ORGANIZATION_NAME: Telecom NMS
+      DEFAULT_PROJECT_NAME: telecom-nms
+
+  supabase-meta:
+    image: supabase/postgres-meta:v0.84.2
+    container_name: telecom-nms-meta
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: supabase-db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: postgres
+      PG_META_DB_PASSWORD: postgres
+
+volumes:
+  supabase_db_data:

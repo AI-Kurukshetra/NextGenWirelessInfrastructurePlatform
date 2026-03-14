@@ -1,0 +1,2 @@
+-- Optional SQL seed for quick local DB bootstrapping.
+-- Use scripts/seed.ts for richer randomized generation.

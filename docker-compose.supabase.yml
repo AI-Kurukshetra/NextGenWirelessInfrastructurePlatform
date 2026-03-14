@@ -1,0 +1,99 @@
+version: "3.9"
+
+services:
+  db:
+    image: supabase/postgres:15.8.1.049
+    container_name: telecom-supabase-db
+    ports:
+      - "54322:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+    volumes:
+      - supabase_db_data:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d
+
+  meta:
+    image: supabase/postgres-meta:v0.84.2
+    container_name: telecom-supabase-meta
+    depends_on:
+      - db
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: postgres
+      PG_META_DB_PASSWORD: postgres
+
+  rest:
+    image: postgrest/postgrest:v12.2.3
+    container_name: telecom-supabase-rest
+    depends_on:
+      - db
+    environment:
+      PGRST_DB_URI: postgres://postgres:postgres@db:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: super-secret-jwt-token-with-at-least-32-chars
+    ports:
+      - "54321:3000"
+
+  auth:
+    image: supabase/gotrue:v2.177.0
+    container_name: telecom-supabase-auth
+    depends_on:
+      - db
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: http://localhost:9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://postgres:postgres@db:5432/postgres?search_path=auth
+      GOTRUE_SITE_URL: http://localhost:3000
+      GOTRUE_URI_ALLOW_LIST: http://localhost:3000
+      GOTRUE_JWT_SECRET: super-secret-jwt-token-with-at-least-32-chars
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_DISABLE_SIGNUP: false
+    ports:
+      - "9999:9999"
+
+  realtime:
+    image: supabase/realtime:v2.34.47
+    container_name: telecom-supabase-realtime
+    depends_on:
+      - db
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      SECRET_KEY_BASE: super-secret-key-base-should-be-32-or-more
+      JWT_SECRET: super-secret-jwt-token-with-at-least-32-chars
+      APP_NAME: telecom-nms-realtime
+      SEED_SELF_HOST: true
+      RLIMIT_NOFILE: 10000
+    ports:
+      - "4000:4000"
+
+  studio:
+    image: supabase/studio:2025.02.14-sha-7f6f2c5
+    container_name: telecom-supabase-studio
+    depends_on:
+      - meta
+    ports:
+      - "54323:3000"
+    environment:
+      SUPABASE_URL: http://localhost:54321
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PASSWORD: postgres
+      DEFAULT_ORGANIZATION_NAME: Telecom NMS
+      DEFAULT_PROJECT_NAME: telecom-nms
+
+volumes:
+  supabase_db_data:
